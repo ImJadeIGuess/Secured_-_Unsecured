@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>XSS Training Lab (Unsecured)</title>
+
+  <!-- Inline on purpose: style.css centers the body for the login forms and would break this layout. -->
+<style>
+:root {
+    --bg: #1c1814;
+    --surface: #25201a;
+    --well: #181410;
+    --line: #3a3228;
+    --text: #e4ddd0;
+    --muted: #a39a8a;
+    --accent: #c3b091;
+    --accent-deep: #8b7355;
+    --bad: #d08476;
+    --good: #92b48c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    display: block;
+    min-height: 0;
+    margin: 0;
+    padding: 0 20px 64px;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+}
+
+.wrap { max-width: 760px; margin: 0 auto; }
+
+.topbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 20px 0;
+}
+
+.logout {
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: .95rem;
+    text-decoration: none;
+}
+
+.logout:hover { color: var(--text); border-color: var(--accent-deep); }
+
+h1, h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: normal;
+}
+
+h1 {
+    margin: 24px 0 12px;
+    color: var(--accent);
+    font-size: 2.4rem;
+    letter-spacing: -.01em;
+}
+
+.notice {
+    margin-bottom: 40px;
+    padding: 12px 16px;
+    border-left: 3px solid var(--bad);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: .95rem;
+}
+
+section {
+    margin-bottom: 36px;
+    padding-left: 20px;
+    border-left: 3px solid var(--line);
+}
+
+section.vulnerable { border-color: var(--bad); }
+section.safe { border-color: var(--good); }
+
+h2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 14px;
+    font-size: 1.35rem;
+}
+
+.tag {
+    padding: 2px 10px;
+    border: 1px solid currentColor;
+    border-radius: 99px;
+    font: .78rem "Segoe UI", system-ui, sans-serif;
+}
+
+.vulnerable .tag { color: var(--bad); }
+.safe .tag { color: var(--good); }
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: .95rem;
+}
+
+textarea {
+    display: block;
+    width: 100%;
+    min-height: 88px;
+    padding: 10px 12px;
+    resize: vertical;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+}
+
+textarea::placeholder { color: #70675a; }
+
+textarea:focus-visible,
+button:focus-visible,
+.logout:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+button {
+    width: auto;
+    margin-top: 12px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent-deep);
+    color: #fff7ea;
+    font: inherit;
+    cursor: pointer;
+}
+
+button:hover { background: #a2845f; }
+
+.output {
+    min-height: 48px;
+    margin-top: 14px;
+    padding: 14px 16px;
+    overflow-wrap: anywhere;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--well);
+}
+
+@media (max-width: 520px) {
+    h1 { font-size: 1.9rem; }
+    section { padding-left: 14px; }
+}
+</style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <a href="login.html" class="logout">Logout</a>
+    </div>
+
+    <h1>XSS Training Lab</h1>
+
+    <p class="notice">
+      For classroom use only. Run this page locally and never test it against systems you do not own.
+    </p>
+
+    <section class="vulnerable">
+      <h2>Exercise A: Reflected XSS <span class="tag">Vulnerable</span></h2>
+
+      <form id="reflectedForm">
+        <label for="reflectedInput">Enter a greeting:</label>
+        <textarea id="reflectedInput" placeholder="Type a message"></textarea>
+        <button type="submit">Display message</button>
+      </form>
+
+      <div id="reflectedOutput" class="output"></div>
+    </section>
+
+    <section class="vulnerable">
+      <h2>Exercise B: DOM XSS <span class="tag">Vulnerable</span></h2>
+
+      <label for="domInput">Enter a message:</label>
+      <textarea id="domInput" placeholder="Type a message"></textarea>
+      <button id="domButton">Display message</button>
+
+      <div id="domOutput" class="output"></div>
+    </section>
+
+    <section class="safe">
+      <h2>Exercise C: Safe output <span class="tag">Safe</span></h2>
+
+      <label for="safeInput">Enter a message:</label>
+      <textarea id="safeInput" placeholder="Type a message"></textarea>
+      <button id="safeButton">Display safely</button>
+
+      <div id="safeOutput" class="output"></div>
+    </section>
+  </div>
+
+ <script>
+  // EXERCISE A: "Reflected" XSS (really DOM-based, see note below)
+  document.getElementById("reflectedForm").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const message = document.getElementById("reflectedInput").value;
+    document.getElementById("reflectedOutput").innerHTML = "You entered: " + message; //treat this text as HTML code and build it into the page
+  });
+
+  // EXERCISE B: DOM-based XSS
+  document.getElementById("domButton").addEventListener("click", function () {
+    const message = document.getElementById("domInput").value;
+    document.getElementById("domOutput").innerHTML = message; //innerHTML runs the user's input as HTML, so it can run their JavaScript too.
+  });
+
+  // EXERCISE C: Safe output
+  document.getElementById("safeButton").addEventListener("click", function () {
+    const message = document.getElementById("safeInput").value;
+    document.getElementById("safeOutput").textContent = message;     // SAFE: textContent is plain text only, so tags and event handlers never run
+  });
+</script> 
+</body>
+</html>
